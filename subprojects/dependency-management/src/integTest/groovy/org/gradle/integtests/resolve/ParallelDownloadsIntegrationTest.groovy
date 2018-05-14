@@ -206,6 +206,24 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
             
             configurations { compile }
             def lock = new java.util.concurrent.locks.ReentrantLock()
+
+            class LockingRule implements ComponentMetadataRule {
+
+                java.util.concurrent.locks.Lock lock
+
+                public LockingRule(java.util.concurrent.locks.Lock lock) {
+                    this.lock = lock
+                }
+
+                public void execute(ComponentMetadataContext context) {
+                    // need to make sure that rules are not executed concurrently
+                    // because they can share state (typically... this lock!)
+                    if (!lock.tryLock()) {
+                        throw new AssertionError("Rule called concurrently")
+                    }
+                    lock.unlock()
+                }
+            }
             
             dependencies {
                 compile 'test:test1:1.0'
@@ -214,20 +232,12 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
                 compile 'test:test4:1.0'
                 
                 components {
-                    all { ComponentMetadataDetails details ->
-                        if (!lock.tryLock()) {
-                            throw new AssertionError("Rule called concurrently")
-                        }
-                        lock.unlock()
-                    }
-                    withModule("test:test1") { ComponentMetadataDetails details ->
-                        // need to make sure that rules are not executed concurrently
-                        // because they can share state (typically... this lock!)
-                        if (!lock.tryLock()) {
-                            throw new AssertionError("Rule called concurrently")
-                        }
-                        lock.unlock()
-                    }
+                    all(LockingRule, {
+                        params(lock)
+                    })
+                    withModule("test:test1", LockingRule, {
+                        params(lock)
+                    })
                 }
             }
             task resolve {
