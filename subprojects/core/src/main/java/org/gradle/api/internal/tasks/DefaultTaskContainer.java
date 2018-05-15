@@ -339,18 +339,18 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
             if (taskProvider == null) {
                 throw createNotFoundException(name);
             } else if (!type.isAssignableFrom(taskProvider.getType())) {
-                return createTypeMismatchException(name, taskProvider.getType(), type);
+                throw createTypeMismatchException(name, taskProvider.getType(), type);
             }
-            return (TaskProvider<T>)taskProvider;
+            return (TaskProvider<T>) taskProvider;
         } else if(!type.isAssignableFrom(task.getClass())) {
-            return createTypeMismatchException(name, getDeclaredTaskType(task), type);
+            throw createTypeMismatchException(name, getDeclaredTaskType(task), type);
         }
 
         return new TaskLookupProvider<T>(type, name);
     }
 
-    private <T extends Task> TaskProvider<T> createTypeMismatchException(String name, Class<?> actualType, Class<?> expectedType) {
-        throw new IllegalArgumentException(String.format("Task with name '%s' exists in %s, but task does not have requested type. Found %s expected %s.", name, project, actualType.getName(), expectedType.getName()));
+    private IllegalArgumentException createTypeMismatchException(String name, Class<?> actualType, Class<?> expectedType) {
+        return new IllegalArgumentException(String.format("Task with name '%s' exists in %s, but task does not have requested type. Found %s expected %s.", name, project, actualType.getName(), expectedType.getName()));
     }
 
     private Class getDeclaredTaskType(Task original) {
