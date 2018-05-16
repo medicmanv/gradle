@@ -38,7 +38,7 @@ class NoOpDependencyLockingProviderTest extends Specification {
 
 
         when:
-        provider.persistResolvedDependencies('conf', result)
+        provider.persistResolvedDependencies('conf', result, false)
 
         then:
         0 * _

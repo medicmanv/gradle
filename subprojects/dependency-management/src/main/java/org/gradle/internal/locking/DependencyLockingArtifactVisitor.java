@@ -27,10 +27,12 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.Artif
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.DependencyArtifactsVisitor;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphNode;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.RootGraphNode;
+import org.gradle.api.internal.artifacts.repositories.resolver.MavenUniqueSnapshotComponentIdentifier;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.internal.component.local.model.LocalFileDependencyMetadata;
 import org.gradle.internal.component.local.model.RootConfigurationMetadata;
+import org.gradle.internal.component.model.ComponentResolveMetadata;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -47,6 +49,7 @@ public class DependencyLockingArtifactVisitor implements DependencyArtifactsVisi
     private Set<ModuleComponentIdentifier> allResolvedModules;
     private Set<String> extraModules;
     private DependencyLockingState dependencyLockingState;
+    private boolean changingModuleVisited;
 
     public DependencyLockingArtifactVisitor(String configurationName, DependencyLockingProvider dependencyLockingProvider) {
         this.configurationName = configurationName;
@@ -73,8 +76,15 @@ public class DependencyLockingArtifactVisitor implements DependencyArtifactsVisi
     @Override
     public void visitNode(DependencyGraphNode node) {
         ComponentIdentifier identifier = node.getOwner().getComponentId();
+        ComponentResolveMetadata metadata = node.getOwner().getMetadata();
+        if (metadata != null && metadata.isChanging()) {
+            changingModuleVisited = true;
+        }
         if (identifier instanceof ModuleComponentIdentifier) {
             ModuleComponentIdentifier id = (ModuleComponentIdentifier) identifier;
+            if (identifier instanceof MavenUniqueSnapshotComponentIdentifier) {
+                id = ((MavenUniqueSnapshotComponentIdentifier) id).getSnapshotComponent();
+            }
             if (!id.getVersion().isEmpty()) {
                 if (allResolvedModules.add(id) && dependencyLockingState.mustValidateLockState()) {
                     String displayName = id.getDisplayName();
@@ -122,6 +132,6 @@ public class DependencyLockingArtifactVisitor implements DependencyArtifactsVisi
     }
 
     public void complete() {
-        dependencyLockingProvider.persistResolvedDependencies(configurationName, allResolvedModules);
+        dependencyLockingProvider.persistResolvedDependencies(configurationName, allResolvedModules, changingModuleVisited);
     }
 }

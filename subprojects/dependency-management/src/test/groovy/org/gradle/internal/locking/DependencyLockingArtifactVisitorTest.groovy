@@ -26,6 +26,7 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.Dependen
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphNode
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.RootGraphNode
 import org.gradle.internal.component.local.model.RootConfigurationMetadata
+import org.gradle.internal.component.model.ComponentResolveMetadata
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -76,7 +77,7 @@ class DependencyLockingArtifactVisitorTest extends Specification {
         visitor.visitNode(node)
 
         then:
-        1 * node.owner >> component
+        2 * node.owner >> component
         1 * component.componentId >> identifier
         1 * identifier.version >> '1.0'
         1 * identifier.displayName >> 'org:foo:1.0'
@@ -89,14 +90,17 @@ class DependencyLockingArtifactVisitorTest extends Specification {
         DependencyGraphNode node = Mock()
         DependencyGraphComponent component = Mock()
         ModuleComponentIdentifier identifier = Mock()
+        ComponentResolveMetadata metadata = Mock()
 
         when:
         visitor.visitNode(node)
 
         then:
-        1 * node.owner >> component
+        2 * node.owner >> component
         1 * component.componentId >> identifier
         1 * identifier.version >> ''
+        1 * component.metadata >> metadata
+        1 * metadata.isChanging() >> false
         0 * _
     }
 
@@ -113,8 +117,9 @@ class DependencyLockingArtifactVisitorTest extends Specification {
         visitor.visitNode(node)
 
         then:
-        1 * node.owner >> component
+        2 * node.owner >> component
         1 * component.componentId >> identifier
+        1 * component.metadata >> null
         0 * _
     }
 
@@ -164,15 +169,47 @@ class DependencyLockingArtifactVisitorTest extends Specification {
         visitor.complete()
 
         then:
-        1 * dependencyLockingProvider.persistResolvedDependencies(configuration, singleton(identifier))
+        1 * dependencyLockingProvider.persistResolvedDependencies(configuration, singleton(identifier), false)
 
     }
+
+    def 'invokes locking provider on complete with visited modules and indicates changing modules seen'() {
+        given:
+        startWithoutLockState()
+        def identifier = addVisitedChangingNode('org:foo:1.0')
+
+        when:
+        visitor.complete()
+
+        then:
+        1 * dependencyLockingProvider.persistResolvedDependencies(configuration, singleton(identifier), true)
+
+    }
+
 
     private ModuleComponentIdentifier addVisitedNode(String module) {
         DependencyGraphNode node = Mock()
         DependencyGraphComponent component = Mock()
         ModuleComponentIdentifier identifier = Mock()
         node.owner >> component
+        component.componentId >> identifier
+        identifier.version >> module.substring(module.lastIndexOf(':') + 1)
+        identifier.displayName >> module
+
+        visitor.visitNode(node)
+
+        return identifier
+
+    }
+
+    private ModuleComponentIdentifier addVisitedChangingNode(String module) {
+        DependencyGraphNode node = Mock()
+        DependencyGraphComponent component = Mock()
+        ModuleComponentIdentifier identifier = Mock()
+        ComponentResolveMetadata metadata = Mock()
+        node.owner >> component
+        component.metadata >> metadata
+        metadata.isChanging() >> true
         component.componentId >> identifier
         identifier.version >> module.substring(module.lastIndexOf(':') + 1)
         identifier.displayName >> module

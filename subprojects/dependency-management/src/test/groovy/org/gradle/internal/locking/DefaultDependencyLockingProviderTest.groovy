@@ -55,7 +55,7 @@ class DefaultDependencyLockingProviderTest extends Specification {
         def modules = [module('org', 'foo', '1.0'), module('org','bar','1.3')] as Set
 
         when:
-        provider.persistResolvedDependencies('conf', modules)
+        provider.persistResolvedDependencies('conf', modules, false)
 
         then:
         lockDir.file('conf.lockfile').text == """${LockFileReaderWriter.LOCKFILE_HEADER}org:bar:1.3

@@ -40,7 +40,7 @@ public class NoOpDependencyLockingProvider implements DependencyLockingProvider 
     }
 
     @Override
-    public void persistResolvedDependencies(String configurationName, Set<ModuleComponentIdentifier> resolutionResult) {
+    public void persistResolvedDependencies(String configurationName, Set<ModuleComponentIdentifier> resolutionResult, boolean containsChangingModule) {
         // No-op
     }
 }
